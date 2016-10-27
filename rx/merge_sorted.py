@@ -2,31 +2,26 @@ from rx.core import Observable, AnonymousObservable
 from rx.disposables import CompositeDisposable, SingleAssignmentDisposable
 from rx.internal import extensionmethod, extensionclassmethod
 
-# tomorrow: change syntax to: accept list of sequences and comma-separated sequences;
-# make min the default comparator
-# how does backpressure work here?
-
 @extensionmethod(Observable, instancemethod=True)
 def merge_sorted(self, *args, **kwargs):
-    """Merges the specified observable sequences into one observable
-    sequence by using the selector function whenever all of the observable
-    sequences or an array have produced an element at a corresponding index.
+    """Merges two or more observable sequences, assumed to be ordered,
+    into one ordered observable sequence, preserving all the elements.
 
-    The element thus selected is removed from its corresponding sequence,
-    and the procedure is then repeated. Thus if you use 'min' as the selector
-    function, and sorted_merge two sequences sorted in ascending order
-    (eg by timestamp), the resulting sequence will also be sorted by ascending order
+    The sequences can be supplied as individual arguments or as a list.
+    Comparison function is min by default, accepts custom ordering function
+    as named argument selector.
 
-    If two elements from two sequences are equal, the function will first emit the one
-    from the sequence that came first in the argument list
+    Once all non-completed sequences have produced at least one element,
+    the vector of latest values is reduced using the selector function.
+    The element thus selected is removed from its sequence and broadcast downstream,
+    and the procedure is then repeated.
 
-    The last element in the arguments must be a function to invoke for each
-    series of elements at corresponding indexes in the sources.
+    1 - res = obs1.zip(obs2, obs3,..., obsN)
+    2 - res = obs1.zip(obs2, obs3,..., obsN, selector=func)
+    3 - res = obs1.zip([obs2, obs3,..., obsN])
+    4 - res = obs1.zip([obs2, obs3,..., obsN], selector=func)
 
-    1 - res = obs1.zip(obs2, obs3,..., obsN, fn)
-
-    Returns an observable sequence containing the result of combining
-    elements of the sources using the specified result selector function.
+    Implementation loosely based on the RxPY zip function
     """
 
     parent = self
@@ -100,20 +95,24 @@ def merge_sorted(self, *args, **kwargs):
 
 @extensionclassmethod(Observable)
 def merge_sorted(cls, *args,**kwargs):
-    """Merges the specified observable sequences into one observable
-    sequence by using the selector function whenever all of the observable
-    sequences have produced an element at a corresponding index.
+    """Merges two or more observable sequences, assumed to be ordered,
+    into one ordered observable sequence, preserving all the elements.
 
-    The last element in the arguments must be a function to invoke for each
-    series of elements at corresponding indexes in the sources.
+    The sequences can be supplied as individual arguments or as a list.
+    Comparison function is min by default, accepts custom ordering function
+    as named argument selector.
 
-    Arguments:
-    args -- Observable sources.
+    Once all non-completed sequences have produced at least one element,
+    the vector of latest values is reduced using the selector function.
+    The element thus selected is removed from its sequence and broadcast downstream,
+    and the procedure is then repeated.
 
-    Returns an observable {Observable} sequence containing the result of
-    combining elements of the sources using the specified result selector
-    function.
+    1 - res = Observable.zip(obs1, obs2,..., obsN)
+    2 - res = Observable.zip(obs1, obs2,..., obsN, selector=func)
+    3 - res = Observable.zip([obs1, obs2,..., obsN])
+    4 - res = Observable.zip([obs1, obs2,..., obsN], selector=func)
     """
+
     if args and isinstance(args[0], list): # allow first arg to be a list of observables
         first=args[0].pop()
         return first.merge_sorted(*args,**kwargs)
